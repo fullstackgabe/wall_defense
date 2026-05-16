@@ -9,7 +9,7 @@ var hp: float           = 20.0
 var move_speed: float   = 55.0
 var lives_damage: int   = 1
 var gold_reward: int    = 10
-var char_folder: String = "skeleton_warrior"
+var char_folder: String = "night_king"
 var is_immune: bool     = false   ## immune to normal projectiles (Night King)
 
 const MELEE_RANGE  := 52.0
