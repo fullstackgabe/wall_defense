@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://dqryquirc4ftt"]
+
+[ext_resource type="Script" path="res://map.gd" id="1_map"]
+[ext_resource type="Script" path="res://main.gd" id="2_main"]
+[ext_resource type="Script" path="res://tower_menu.gd" id="3_tower_menu"]
+
+[node name="Main" type="Node2D"]
+script = ExtResource("2_main")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(640, 360)
+
+[node name="Map" type="Node2D" parent="."]
+script = ExtResource("1_map")
+
+[node name="TowerMenu" type="Control" parent="."]
+script = ExtResource("3_tower_menu")

@@ -1,0 +1,11 @@
+# Godot
+.godot/
+/android/
+
+# Claude
+CLAUDE.md
+.claude/
+
+# Archives
+*.zip
+
