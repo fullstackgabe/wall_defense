@@ -1,10 +1,17 @@
-# Godot
+# Godot 4+
 .godot/
 /android/
+export_presets.cfg
+*.translation
 
-# Claude
+# Claude Code (documentação local, não versionar)
 CLAUDE.md
 .claude/
 
-# Archives
+# macOS / Windows
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Downloads do PixelLab
 *.zip
