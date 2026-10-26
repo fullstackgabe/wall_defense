@@ -30,6 +30,14 @@ func lose_lives(amount: int) -> void:
 	if lives == 0:
 		_set_state(State.GAME_OVER)
 
+## Volta ao início da partida (o autoload sobrevive ao recarregar a cena).
+func reset() -> void:
+	gold  = STARTING_GOLD
+	lives = STARTING_LIVES
+	gold_changed.emit(gold)
+	lives_changed.emit(lives)
+	_set_state(State.PREP)
+
 func _set_state(new_state: State) -> void:
 	state = new_state
 	state_changed.emit(state)

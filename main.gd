@@ -14,6 +14,7 @@ const Styles       = preload("res://styles.gd")
 const TOWER_SCRIPTS := { "archer": _ArcherTower }
 const JON_SNOW_SPAWN_CELL := Vector2i(16, 12)
 const RESPAWN_DELAY := 15.0
+const SPAWN_COOLDOWN := 3.0   ## espera entre envios de inimigos
 
 @onready var _map:        Node2D  = $Map
 @onready var _tower_menu: Control = $TowerMenu
@@ -25,6 +26,8 @@ var _respawn_timer: float = 0.0
 var _respawn_btn:   Button = null
 var _respawn_label: Label  = null
 var _respawn_canvas: CanvasLayer = null
+var _spawn_btn:      Button = null
+var _spawn_cooldown: float  = 0.0
 
 # ---------------------------------------------------------------------------
 
@@ -83,18 +86,36 @@ func _build_spawn_btn() -> void:
 	var canvas := CanvasLayer.new()
 	add_child(canvas)
 
-	var btn := Button.new()
-	btn.text = "Enviar Inimigos"
-	btn.custom_minimum_size = Vector2(200, 46)
-	btn.add_theme_font_size_override("font_size", 14)
-	Styles.gold_button(btn, Styles.GOLD, Styles.GOLD.lightened(0.2))
-	btn.add_theme_color_override("font_color", Styles.NIGHT)
-	btn.pressed.connect(func(): _wave_manager.spawn_pair())
-	canvas.add_child(btn)
+	_spawn_btn = Button.new()
+	_spawn_btn.text = "Enviar Inimigos"
+	_spawn_btn.custom_minimum_size = Vector2(200, 46)
+	_spawn_btn.add_theme_font_size_override("font_size", 14)
+	Styles.gold_button(_spawn_btn, Styles.GOLD, Styles.GOLD.lightened(0.2))
+	_spawn_btn.add_theme_color_override("font_color", Styles.NIGHT)
+	_spawn_btn.pressed.connect(_on_spawn_pressed)
+	canvas.add_child(_spawn_btn)
 	await get_tree().process_frame
-	btn.position = Vector2(1280 / 2.0 - btn.size.x / 2.0, 720 - btn.size.y - 12)
+	_spawn_btn.position = Vector2(1280 / 2.0 - _spawn_btn.size.x / 2.0, 720 - _spawn_btn.size.y - 12)
+
+func _on_spawn_pressed() -> void:
+	if _spawn_cooldown > 0.0:
+		return
+	_wave_manager.spawn_pair()
+	_spawn_cooldown = SPAWN_COOLDOWN
+	_spawn_btn.disabled = true
+
+func _tick_spawn_cooldown(delta: float) -> void:
+	if _spawn_cooldown <= 0.0:
+		return
+	_spawn_cooldown -= delta
+	if _spawn_cooldown > 0.0:
+		_spawn_btn.text = "Enviar Inimigos (%ds)" % ceili(_spawn_cooldown)
+	else:
+		_spawn_btn.text = "Enviar Inimigos"
+		_spawn_btn.disabled = false
 
 func _process(delta: float) -> void:
+	_tick_spawn_cooldown(delta)
 	if not _respawning:
 		if not is_instance_valid(_jon_snow) and not _respawn_canvas.visible:
 			_respawning = true
@@ -131,4 +152,41 @@ func _on_tower_chosen(tower_type: String, pad) -> void:
 
 func _on_state_changed(new_state: GameState.State) -> void:
 	if new_state == GameState.State.GAME_OVER:
-		print("GAME OVER")
+		_show_game_over()
+
+func _show_game_over() -> void:
+	var canvas := CanvasLayer.new()
+	canvas.layer = 10
+	canvas.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(canvas)
+
+	var dim := ColorRect.new()
+	dim.color = Color.BLACK
+	dim.size  = Vector2(1280, 720)
+	canvas.add_child(dim)
+
+	var title := Label.new()
+	title.text = "A MURALHA CAIU"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.size     = Vector2(1280, 80)
+	title.position = Vector2(0, 250)
+	title.add_theme_font_size_override("font_size", 56)
+	title.add_theme_color_override("font_color", Styles.BLOOD.lightened(0.3))
+	canvas.add_child(title)
+
+	var btn := Button.new()
+	btn.text = "Jogar de novo"
+	btn.custom_minimum_size = Vector2(200, 46)
+	btn.position = Vector2(1280 / 2.0 - 100, 360)
+	btn.add_theme_font_size_override("font_size", 16)
+	Styles.gold_button(btn, Styles.GOLD, Styles.GOLD.lightened(0.2))
+	btn.pressed.connect(_restart)
+	canvas.add_child(btn)
+
+	_tower_menu.hide_menu()
+	get_tree().paused = true
+
+func _restart() -> void:
+	get_tree().paused = false
+	GameState.reset()
+	get_tree().reload_current_scene()

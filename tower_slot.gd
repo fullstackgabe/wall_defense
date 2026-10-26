@@ -69,6 +69,19 @@ func _on_mouse_exited() -> void:
 	_hovered = false
 	queue_redraw()
 
+## O sprite da torre é bem maior que o slot: cliques no corpo da torre
+## também abrem o menu (a área física do slot só cobre a base).
+func _unhandled_input(event: InputEvent) -> void:
+	if tower == null or not tower.has_method("hit_test"):
+		return
+	if not event is InputEventMouseButton:
+		return
+	var mb := event as InputEventMouseButton
+	if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed \
+	   and tower.hit_test(to_global(make_input_local(mb).position)):
+		pad_clicked.emit(self)
+		get_viewport().set_input_as_handled()
+
 func _on_input_event(_viewport: Viewport, event: InputEvent, _idx: int) -> void:
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton

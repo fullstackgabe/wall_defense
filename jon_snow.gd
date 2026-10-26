@@ -14,7 +14,8 @@ const HOLE_X_RIGHT := 18 * 40        ## 720
 const HOLE_X_MID   := (HOLE_X_LEFT + HOLE_X_RIGHT) / 2.0  ## 640
 
 const MOVE_SPEED    := 80.0
-const MELEE_RANGE   := 36.0
+const MELEE_RANGE   := 52.0      ## igual ao EnemyBase.MELEE_RANGE: alcança quem o ataca
+const BODY_RADIUS   := 12.0
 const CHASE_RANGE   := 160.0
 const ATTACK_DAMAGE := 11.0
 const MAX_HP        := 200.0
@@ -37,7 +38,7 @@ func _ready() -> void:
 
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
-	circle.radius = 12.0
+	circle.radius = BODY_RADIUS
 	shape.shape = circle
 	add_child(shape)
 
@@ -53,8 +54,11 @@ func _physics_process(delta: float) -> void:
 	if hp <= 0.0:
 		return
 
-	## Atualiza alvo mais próximo
-	if not is_instance_valid(_locked_target) or \
+	## Quem está batendo nele tem prioridade; senão, o inimigo mais próximo
+	var attacker := _find_attacker()
+	if attacker != null:
+		_locked_target = attacker
+	elif not is_instance_valid(_locked_target) or \
 	   global_position.distance_to(_locked_target.global_position) > CHASE_RANGE:
 		_locked_target = _find_nearest_enemy()
 
@@ -123,6 +127,12 @@ func _set_destination(dest: Vector2) -> void:
 	_path = _compute_path(dest)
 
 func _compute_path(dest: Vector2) -> Array:
+	## Caminho reto livre (ex.: os dois dentro do buraco) — vai direto.
+	## Sem isso, perto da borda da muralha ele alternava entre a rota pelo
+	## buraco e a rota direta a cada frame e ficava tremendo no lugar.
+	if _segment_clear(global_position, dest):
+		return [dest]
+
 	var from_y := global_position.y
 	var dest_y := dest.y
 
@@ -147,6 +157,18 @@ func _compute_path(dest: Vector2) -> Array:
 
 	return [dest]
 
+## true se o segmento a→b não atravessa a parte sólida da muralha
+## (considerando o raio do corpo).
+func _segment_clear(a: Vector2, b: Vector2) -> bool:
+	var steps := maxi(1, int(a.distance_to(b) / 8.0))
+	for i in range(steps + 1):
+		var p := a.lerp(b, float(i) / steps)
+		var in_wall := p.y > WALL_Y_TOP - BODY_RADIUS and p.y < WALL_Y_BOT + BODY_RADIUS
+		var in_hole := p.x > HOLE_X_LEFT + BODY_RADIUS and p.x < HOLE_X_RIGHT - BODY_RADIUS
+		if in_wall and not in_hole:
+			return false
+	return true
+
 # ---------------------------------------------------------------------------
 
 static func _vec_to_dir(v: Vector2) -> String:
@@ -159,6 +181,12 @@ static func _vec_to_dir(v: Vector2) -> String:
 	elif deg < 247.5:                  return "north-west"
 	elif deg < 292.5:                  return "north"
 	else:                              return "north-east"
+
+func _find_attacker() -> Node2D:
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if is_instance_valid(e) and e.get("_engaged_hero") == self:
+			return e
+	return null
 
 func _find_nearest_enemy() -> Node2D:
 	var best: Node2D = null

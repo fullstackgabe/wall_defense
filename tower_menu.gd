@@ -5,17 +5,24 @@ const Styles = preload("res://styles.gd")
 signal tower_chosen(tower_type, pad)
 signal cancelled
 
+## locked = torre planejada, ainda não implementada (aparece como “Em breve”).
 const TOWER_DEFS := [
-	{"type": "archer", "label": "Torre de Flecha", "cost": 50},
+	{"type": "archer",     "label": "Torre de Flecha",   "cost": 50,  "locked": false},
+	{"type": "barracks",   "label": "Quartel da Patrulha", "cost": 70,  "locked": true},
+	{"type": "catapult",   "label": "Catapulta",         "cost": 100, "locked": true},
+	{"type": "dragonglass","label": "Vidro de Dragão",   "cost": 120, "locked": true},
 ]
 
 const SELL_REFUND := 0.6   ## fração do custo devolvida ao vender a torre
 
-const PANEL_W  := 240
+const LOCKED_BG := Color(0.22, 0.24, 0.28)
+
+const PANEL_W  := 300
 const SCREEN_W := 1280
 const SCREEN_H := 720
 
 var _current_pad = null
+var _outer: PanelContainer
 var _buttons: Array[Button] = []
 var _build_panel: Control
 var _remove_panel: Control
@@ -27,18 +34,19 @@ func _ready() -> void:
 	_build_ui()
 
 func _build_ui() -> void:
-	var outer := PanelContainer.new()
-	outer.add_theme_stylebox_override("panel",
+	_outer = PanelContainer.new()
+	_outer.custom_minimum_size = Vector2(PANEL_W, 0)
+	_outer.add_theme_stylebox_override("panel",
 		Styles.bordered(Styles.NIGHT, Styles.GOLD, 8, 2))
-	add_child(outer)
+	add_child(_outer)
 
 	var vbox_outer := VBoxContainer.new()
 	vbox_outer.add_theme_constant_override("separation", 0)
-	outer.add_child(vbox_outer)
+	_outer.add_child(vbox_outer)
 
 	## ---- BUILD PANEL ----
 	_build_panel = VBoxContainer.new()
-	_build_panel.add_theme_constant_override("separation", 4)
+	_build_panel.add_theme_constant_override("separation", 6)
 	vbox_outer.add_child(_build_panel)
 
 	for t in TOWER_DEFS:
@@ -65,32 +73,40 @@ func _build_ui() -> void:
 	_remove_btn.pressed.connect(func(): _on_tower_btn("__remove__"))
 	_remove_panel.add_child(_remove_btn)
 
-	custom_minimum_size = Vector2(PANEL_W, 0)
-
-## Coluna: [nome torre] / [Construir]
+## Linha: [nome da torre]  [Construir · custo]  (ou [Em breve · custo] se bloqueada)
 func _build_tower_row(t: Dictionary) -> Control:
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 6)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
 
 	var name_lbl := Label.new()
 	name_lbl.text = t.label
-	name_lbl.add_theme_color_override("font_color", Styles.SNOW)
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_lbl.add_theme_color_override("font_color",
+		Styles.SNOW.darkened(0.45) if t.locked else Styles.SNOW)
 	name_lbl.add_theme_font_size_override("font_size", 13)
-	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(name_lbl)
+	row.add_child(name_lbl)
 
 	var btn := Button.new()
-	btn.text = "Construir"
-	btn.custom_minimum_size = Vector2(0, 32)
+	btn.custom_minimum_size = Vector2(124, 30)
 	btn.add_theme_font_size_override("font_size", 12)
-	Styles.gold_button(btn, Styles.GOLD.darkened(0.2), Styles.GOLD)
-	btn.add_theme_color_override("font_color", Styles.NIGHT)
-	var type_copy: String = t.type
-	btn.pressed.connect(_on_tower_btn.bind(type_copy))
+	if t.locked:
+		btn.text = "Em breve · %d" % t.cost
+		btn.disabled = true
+		btn.add_theme_stylebox_override("disabled", Styles.flat(LOCKED_BG, 6))
+		btn.add_theme_color_override("font_disabled_color", Styles.SNOW.darkened(0.45))
+	else:
+		btn.text = "Construir · %d" % t.cost
+		Styles.gold_button(btn, Styles.GOLD.darkened(0.2), Styles.GOLD)
+		btn.add_theme_stylebox_override("disabled", Styles.flat(Styles.GOLD.darkened(0.6), 6))
+		btn.add_theme_color_override("font_color", Styles.NIGHT)
+		btn.add_theme_color_override("font_disabled_color", Styles.NIGHT.lightened(0.3))
+		var type_copy: String = t.type
+		btn.pressed.connect(_on_tower_btn.bind(type_copy))
 	_buttons.append(btn)
-	vbox.add_child(btn)
+	row.add_child(btn)
 
-	return vbox
+	return row
 
 # ---------------------------------------------------------------------------
 
@@ -104,14 +120,18 @@ func show_at_pad(pad) -> void:
 		_build_panel.visible  = false
 		_remove_panel.visible = true
 		_remove_title.text = _get_tower_label(pad.tower)
-		_remove_btn.text   = "Vender (+%d)" % sell_value(pad.tower.tower_type)
+		_remove_btn.text   = "Destruir (+%d)" % sell_value(pad.tower.tower_type)
 	visible = true
+	_outer.reset_size()
+	var panel_h := _outer.get_combined_minimum_size().y
+	size = Vector2(PANEL_W, panel_h)
+	## Acima do slot (o slot fica na base da torre, logo abaixo da muralha)
 	var world_pos: Vector2 = pad.global_position
 	var px := world_pos.x - PANEL_W / 2.0
-	var py := world_pos.y - size.y - 8
+	var py := world_pos.y - 24 - panel_h
 	position = Vector2(
 		clamp(px, 4, SCREEN_W - PANEL_W - 4),
-		clamp(py, 4, SCREEN_H - size.y - 4)
+		clamp(py, 4, SCREEN_H - panel_h - 4)
 	)
 
 func hide_menu() -> void:
@@ -121,10 +141,9 @@ func hide_menu() -> void:
 
 func _refresh_buttons() -> void:
 	for i in _buttons.size():
-		var btn := _buttons[i]
-		var affordable: bool = GameState.gold >= TOWER_DEFS[i].cost
-		btn.disabled = not affordable
-		btn.modulate = Color.WHITE if affordable else Color(1, 1, 1, 0.5)
+		if TOWER_DEFS[i].locked:
+			continue
+		_buttons[i].disabled = GameState.gold < TOWER_DEFS[i].cost
 
 func get_cost(tower_type: String) -> int:
 	for t in TOWER_DEFS:

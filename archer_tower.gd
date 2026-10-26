@@ -74,6 +74,10 @@ func _pick_target() -> Node2D:
 				best = e
 	return best
 
+## true se a posição (global) cai num pixel visível do sprite da torre.
+func hit_test(global_pos: Vector2) -> bool:
+	return _sprite != null and _sprite.is_pixel_opaque(_sprite.to_local(global_pos))
+
 func _shoot(target: Node2D) -> void:
 	var proj = _Projectile.new()
 	get_parent().get_parent().add_child(proj)
