@@ -1,6 +1,6 @@
 extends Node
 
-const STARTING_GOLD  := 99999
+const STARTING_GOLD  := 120
 const STARTING_LIVES := 10
 
 var gold:  int = STARTING_GOLD

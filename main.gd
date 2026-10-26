@@ -8,6 +8,7 @@ extends Node2D
 const _ArcherTower = preload("res://archer_tower.gd")
 const _WaveManager = preload("res://wave_manager.gd")
 const _JonSnow     = preload("res://jon_snow.gd")
+const _Hud         = preload("res://hud.gd")
 const Styles       = preload("res://styles.gd")
 
 const TOWER_SCRIPTS := { "archer": _ArcherTower }
@@ -36,6 +37,7 @@ func _ready() -> void:
 	_tower_menu.tower_chosen.connect(_on_tower_chosen)
 
 	GameState.state_changed.connect(_on_state_changed)
+	add_child(_Hud.new())
 	_build_respawn_ui()
 	_build_spawn_btn()
 	_spawn_jon_snow()
@@ -120,10 +122,11 @@ func _on_tower_chosen(tower_type: String, pad) -> void:
 	if tower_type == "__remove__":
 		var t = pad.remove_tower()
 		if t != null:
+			GameState.add_gold(_tower_menu.sell_value(t.tower_type))
 			t.queue_free()
 		return
 	var script = TOWER_SCRIPTS.get(tower_type)
-	if script:
+	if script and GameState.spend_gold(_tower_menu.get_cost(tower_type)):
 		pad.place_tower(script.new())
 
 func _on_state_changed(new_state: GameState.State) -> void:

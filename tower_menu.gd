@@ -9,6 +9,8 @@ const TOWER_DEFS := [
 	{"type": "archer", "label": "Torre de Flecha", "cost": 50},
 ]
 
+const SELL_REFUND := 0.6   ## fração do custo devolvida ao vender a torre
+
 const PANEL_W  := 240
 const SCREEN_W := 1280
 const SCREEN_H := 720
@@ -18,6 +20,7 @@ var _buttons: Array[Button] = []
 var _build_panel: Control
 var _remove_panel: Control
 var _remove_title: Label
+var _remove_btn:   Button
 
 func _ready() -> void:
 	visible = false
@@ -53,15 +56,14 @@ func _build_ui() -> void:
 	_remove_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_remove_panel.add_child(_remove_title)
 
-	var remove_btn := Button.new()
-	remove_btn.text = "Destruir"
-	remove_btn.custom_minimum_size = Vector2(0, 32)
-	remove_btn.add_theme_font_size_override("font_size", 12)
-	remove_btn.add_theme_stylebox_override("normal", Styles.flat(Color(0.45, 0.0, 0.0), 6, 8))
-	remove_btn.add_theme_stylebox_override("hover",  Styles.flat(Color(0.65, 0.0, 0.0), 6, 8))
-	remove_btn.add_theme_color_override("font_color", Styles.SNOW)
-	remove_btn.pressed.connect(func(): _on_tower_btn("__remove__"))
-	_remove_panel.add_child(remove_btn)
+	_remove_btn = Button.new()
+	_remove_btn.custom_minimum_size = Vector2(0, 32)
+	_remove_btn.add_theme_font_size_override("font_size", 12)
+	_remove_btn.add_theme_stylebox_override("normal", Styles.flat(Color(0.45, 0.0, 0.0), 6, 8))
+	_remove_btn.add_theme_stylebox_override("hover",  Styles.flat(Color(0.65, 0.0, 0.0), 6, 8))
+	_remove_btn.add_theme_color_override("font_color", Styles.SNOW)
+	_remove_btn.pressed.connect(func(): _on_tower_btn("__remove__"))
+	_remove_panel.add_child(_remove_btn)
 
 	custom_minimum_size = Vector2(PANEL_W, 0)
 
@@ -102,6 +104,7 @@ func show_at_pad(pad) -> void:
 		_build_panel.visible  = false
 		_remove_panel.visible = true
 		_remove_title.text = _get_tower_label(pad.tower)
+		_remove_btn.text   = "Vender (+%d)" % sell_value(pad.tower.tower_type)
 	visible = true
 	var world_pos: Vector2 = pad.global_position
 	var px := world_pos.x - PANEL_W / 2.0
@@ -117,9 +120,20 @@ func hide_menu() -> void:
 	cancelled.emit()
 
 func _refresh_buttons() -> void:
-	for btn in _buttons:
-		btn.disabled = false
-		btn.modulate = Color.WHITE
+	for i in _buttons.size():
+		var btn := _buttons[i]
+		var affordable: bool = GameState.gold >= TOWER_DEFS[i].cost
+		btn.disabled = not affordable
+		btn.modulate = Color.WHITE if affordable else Color(1, 1, 1, 0.5)
+
+func get_cost(tower_type: String) -> int:
+	for t in TOWER_DEFS:
+		if t.type == tower_type:
+			return t.cost
+	return 0
+
+func sell_value(tower_type: String) -> int:
+	return int(get_cost(tower_type) * SELL_REFUND)
 
 func _get_tower_label(tower: Node2D) -> String:
 	if tower == null or not tower.get("tower_type"):
