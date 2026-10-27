@@ -14,8 +14,13 @@ func setup(target: Node2D, dmg: float, spd: float) -> void:
 	damage      = dmg
 	speed       = spd
 
+## Flecha legível (com 20 px virava um risco) e desenhada por cima da torre e das
+## árvores — sai do alto da torre, que fica na frente dela no y-sort.
+const ARROW_PX := 34.0
+
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	z_index = 20
 	_sprite = Sprite2D.new()
 	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var p := "res://projectiles/arrow.png"
@@ -23,7 +28,7 @@ func _ready() -> void:
 		_sprite.texture = load(p)
 		var tw := float(_sprite.texture.get_width())
 		var th := float(_sprite.texture.get_height())
-		_sprite.scale = Vector2.ONE * (20.0 / maxf(tw, th))
+		_sprite.scale = Vector2.ONE * (ARROW_PX / maxf(tw, th))
 	add_child(_sprite)
 
 func _process(delta: float) -> void:

@@ -8,6 +8,7 @@ const DAMAGE:    float = 9.0
 const RANGE_PX:  float = 300.0
 const FIRE_RATE: float = 1.1
 const TOWER_HEIGHT_PX := 140.0   ## altura da torre desenhada, no mundo
+const ARROW_TOP_DY    := 26.0    ## a flecha nasce um pouco abaixo do topo (janela do arqueiro)
 
 var _fire_timer:       float  = 0.0
 var _enemies_in_range: Array  = []
@@ -88,7 +89,8 @@ func hit_test(global_pos: Vector2) -> bool:
 func _shoot(target: Node2D) -> void:
 	var proj = _Projectile.new()
 	get_parent().get_parent().add_child(proj)
-	proj.global_position = global_position
+	## Sai do alto da torre (topo da arte = 12 − TOWER_HEIGHT_PX; ARROW_TOP_DY abaixo dele).
+	proj.global_position = global_position + Vector2(0, 12.0 - TOWER_HEIGHT_PX + ARROW_TOP_DY)
 	proj.setup(target, DAMAGE, 480.0)
 
 # ---------------------------------------------------------------------------

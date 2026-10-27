@@ -54,7 +54,9 @@ func _spawn_jon_snow() -> void:
 	if is_instance_valid(_jon_snow):
 		return
 	_jon_snow = _JonSnow.new()
-	_jon_snow.global_position = _map.cell_to_world(JON_SNOW_SPAWN_CELL)
+	## Linha 14 (logo abaixo do portão), centralizado na estrada do meio (x = 800);
+	## o centro da célula 20 ficava 20 px à direita.
+	_jon_snow.global_position = Vector2(_JonSnow.HOLE_X_MID, _map.cell_to_world(JON_SNOW_SPAWN_CELL).y)
 	_map.add_child(_jon_snow)
 	_respawning = false
 	_respawn_canvas.visible = false

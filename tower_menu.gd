@@ -5,7 +5,7 @@ const Styles = preload("res://styles.gd")
 signal tower_chosen(tower_type, pad)
 signal cancelled
 
-## locked = torre planejada, ainda não implementada (aparece como “Em breve”).
+## locked = torre planejada, ainda não implementada (não aparece no menu).
 const TOWER_DEFS := [
 	{"type": "archer",     "label": "Torre de Flecha",   "cost": 50,  "locked": false},
 	{"type": "barracks",   "label": "Quartel da Patrulha", "cost": 70,  "locked": true},
@@ -15,8 +15,6 @@ const TOWER_DEFS := [
 
 const SELL_REFUND := 0.6   ## fração do custo devolvida ao vender a torre
 
-const LOCKED_BG := Color(0.22, 0.24, 0.28)
-
 const PANEL_W  := 300
 ## Área do mundo onde o menu pode aparecer (mapa 1600×880). O menu é escalado por
 ## 1/zoom da câmera (em main.gd) para manter o tamanho na tela.
@@ -25,7 +23,7 @@ const WORLD_H := 880
 
 var _current_pad = null
 var _outer: PanelContainer
-var _buttons: Array[Button] = []
+var _buttons: Array = []   ## [Button, def] das torres liberadas
 var _build_panel: Control
 var _remove_panel: Control
 var _remove_title: Label
@@ -51,8 +49,11 @@ func _build_ui() -> void:
 	_build_panel.add_theme_constant_override("separation", 6)
 	vbox_outer.add_child(_build_panel)
 
+	## Só as torres liberadas (hoje só a de flecha), no mesmo formato do painel de
+	## destruir: nome em cima e um botão largo com o custo.
 	for t in TOWER_DEFS:
-		_build_panel.add_child(_build_tower_row(t))
+		if not t.locked:
+			_build_tower_block(t)
 
 	## ---- REMOVE PANEL ----
 	_remove_panel = VBoxContainer.new()
@@ -75,40 +76,26 @@ func _build_ui() -> void:
 	_remove_btn.pressed.connect(func(): _on_tower_btn("__remove__"))
 	_remove_panel.add_child(_remove_btn)
 
-## Linha: [nome da torre]  [Construir · custo]  (ou [Em breve · custo] se bloqueada)
-func _build_tower_row(t: Dictionary) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-
-	var name_lbl := Label.new()
-	name_lbl.text = t.label
-	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	name_lbl.add_theme_color_override("font_color",
-		Styles.SNOW.darkened(0.45) if t.locked else Styles.SNOW)
-	name_lbl.add_theme_font_size_override("font_size", 13)
-	row.add_child(name_lbl)
+func _build_tower_block(t: Dictionary) -> void:
+	var title := Label.new()
+	title.text = t.label
+	title.add_theme_color_override("font_color", Styles.SNOW)
+	title.add_theme_font_size_override("font_size", 13)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_build_panel.add_child(title)
 
 	var btn := Button.new()
-	btn.custom_minimum_size = Vector2(124, 30)
+	btn.text = "Construir · %d de ouro" % t.cost
+	btn.custom_minimum_size = Vector2(0, 32)
 	btn.add_theme_font_size_override("font_size", 12)
-	if t.locked:
-		btn.text = "Em breve · %d" % t.cost
-		btn.disabled = true
-		btn.add_theme_stylebox_override("disabled", Styles.flat(LOCKED_BG, 6))
-		btn.add_theme_color_override("font_disabled_color", Styles.SNOW.darkened(0.45))
-	else:
-		btn.text = "Construir · %d" % t.cost
-		Styles.gold_button(btn, Styles.GOLD.darkened(0.2), Styles.GOLD)
-		btn.add_theme_stylebox_override("disabled", Styles.flat(Styles.GOLD.darkened(0.6), 6))
-		btn.add_theme_color_override("font_color", Styles.NIGHT)
-		btn.add_theme_color_override("font_disabled_color", Styles.NIGHT.lightened(0.3))
-		var type_copy: String = t.type
-		btn.pressed.connect(_on_tower_btn.bind(type_copy))
-	_buttons.append(btn)
-	row.add_child(btn)
-
-	return row
+	Styles.gold_button(btn, Styles.GOLD.darkened(0.2), Styles.GOLD)
+	btn.add_theme_stylebox_override("disabled", Styles.flat(Styles.GOLD.darkened(0.6), 6))
+	btn.add_theme_color_override("font_color", Styles.NIGHT)
+	btn.add_theme_color_override("font_disabled_color", Styles.NIGHT.lightened(0.3))
+	var type_copy: String = t.type
+	btn.pressed.connect(_on_tower_btn.bind(type_copy))
+	_buttons.append([btn, t])
+	_build_panel.add_child(btn)
 
 # ---------------------------------------------------------------------------
 
@@ -144,10 +131,8 @@ func hide_menu() -> void:
 	cancelled.emit()
 
 func _refresh_buttons() -> void:
-	for i in _buttons.size():
-		if TOWER_DEFS[i].locked:
-			continue
-		_buttons[i].disabled = GameState.gold < TOWER_DEFS[i].cost
+	for pair in _buttons:
+		pair[0].disabled = GameState.gold < pair[1].cost
 
 func get_cost(tower_type: String) -> int:
 	for t in TOWER_DEFS:
