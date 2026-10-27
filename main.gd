@@ -16,7 +16,7 @@ const JON_SNOW_SPAWN_CELL := Vector2i(20, 14)
 ## Câmera afastada: o fundo ilustrado (400×224 ×4 = 1600×896) preenche exatamente a
 ## tela de 1280×720 (zoom 720/896 ≈ 0.80); o grid jogável ocupa os primeiros 880 px.
 const CAMERA_ZOOM := 720.0 / 896.0
-const RESPAWN_DELAY := 15.0
+const RESPAWN_DELAY := 10.0   ## Jon Snow volta 10 s depois de morrer
 const SPAWN_INTERVAL := 3.0   ## uma horda a cada 3 s, automática (não há mais botão)
 
 @onready var _map:        Node2D  = $Map
