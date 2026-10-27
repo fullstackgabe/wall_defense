@@ -18,8 +18,10 @@ const SELL_REFUND := 0.6   ## fração do custo devolvida ao vender a torre
 const LOCKED_BG := Color(0.22, 0.24, 0.28)
 
 const PANEL_W  := 300
-const SCREEN_W := 1280
-const SCREEN_H := 720
+## Área do mundo onde o menu pode aparecer (mapa 1600×880). O menu é escalado por
+## 1/zoom da câmera (em main.gd) para manter o tamanho na tela.
+const WORLD_W := 1600
+const WORLD_H := 880
 
 var _current_pad = null
 var _outer: PanelContainer
@@ -127,11 +129,13 @@ func show_at_pad(pad) -> void:
 	size = Vector2(PANEL_W, panel_h)
 	## Acima do slot (o slot fica na base da torre, logo abaixo da muralha)
 	var world_pos: Vector2 = pad.global_position
-	var px := world_pos.x - PANEL_W / 2.0
-	var py := world_pos.y - 24 - panel_h
+	var w := PANEL_W * scale.x
+	var h := panel_h * scale.y
+	var px := world_pos.x - w / 2.0
+	var py := world_pos.y - 24 - h
 	position = Vector2(
-		clamp(px, 4, SCREEN_W - PANEL_W - 4),
-		clamp(py, 4, SCREEN_H - panel_h - 4)
+		clamp(px, 4, WORLD_W - w - 4),
+		clamp(py, 4, WORLD_H - h - 4)
 	)
 
 func hide_menu() -> void:
@@ -173,5 +177,5 @@ func _unhandled_input(event: InputEvent) -> void:
 	if visible and event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
-			if not get_rect().has_point(get_local_mouse_position()):
+			if not Rect2(Vector2.ZERO, size).has_point(get_local_mouse_position()):
 				hide_menu()

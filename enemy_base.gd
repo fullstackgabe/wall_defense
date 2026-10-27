@@ -3,6 +3,7 @@ extends Node2D
 
 const _PathFollower   = preload("res://path_follower.gd")
 const _SpriteAnimator = preload("res://sprite_animator.gd")
+const _HpBar          = preload("res://hp_bar.gd")
 
 var max_hp: float       = 20.0
 var hp: float           = 20.0
@@ -10,10 +11,11 @@ var move_speed: float   = 55.0
 var lives_damage: int   = 1
 var gold_reward: int    = 10
 var char_folder: String = "night_king"
+var sprite_px: float     = 80.0   ## tamanho do canvas do sprite no mundo (o personagem ocupa ~70%)
 var is_immune: bool     = false   ## immune to normal projectiles (Night King)
+var melee_damage: float = 25.0     ## dano por golpe no herói (definido no _setup de cada inimigo)
 
 const MELEE_RANGE  := 52.0
-const MELEE_DAMAGE := 25.0
 const MELEE_RATE   := 1.0
 
 var _follower
@@ -50,8 +52,9 @@ func _ready() -> void:
 
 	_anim = _SpriteAnimator.new()
 	add_child(_anim)
-	_anim.setup(char_folder, 80.0)
+	_anim.setup(char_folder, sprite_px)
 	_anim.attack_hit.connect(_on_attack_hit)
+	add_child(_HpBar.new(func(): return hp / max_hp, _anim.head_y - 8.0))
 
 ## Override in subclass to set stats.
 func _setup() -> void:
@@ -112,7 +115,7 @@ func _find_free_hero() -> Node2D:
 
 func _on_attack_hit() -> void:
 	if is_instance_valid(_engaged_hero):
-		_engaged_hero.take_damage(MELEE_DAMAGE)
+		_engaged_hero.take_damage(melee_damage)
 
 func take_damage(amount: float) -> void:
 	hp -= amount
@@ -120,19 +123,6 @@ func take_damage(amount: float) -> void:
 	if hp <= 0.0:
 		died.emit(self, gold_reward)
 		queue_free()
-
-# ---------------------------------------------------------------------------
-# HP bar
-
-func _draw() -> void:
-	var bar_w := 36.0
-	var bar_h := 4.0
-	var off   := Vector2(-bar_w / 2.0, -30.0)
-	draw_rect(Rect2(off, Vector2(bar_w, bar_h)), Color(0.2, 0.2, 0.2))
-	var ratio := hp / max_hp
-	draw_rect(Rect2(off, Vector2(bar_w * ratio, bar_h)),
-	          Color(0.1, 0.8, 0.1) if ratio > 0.5 else Color(0.9, 0.2, 0.1))
-	queue_redraw()
 
 # ---------------------------------------------------------------------------
 
@@ -150,3 +140,7 @@ static func _vec_to_dir(v: Vector2) -> String:
 	elif deg < 247.5:                  return "north-west"
 	elif deg < 292.5:                  return "north"
 	else:                              return "north-east"
+
+## Meio do corpo (o nó fica no pé): é para onde as flechas miram.
+func body_center() -> Vector2:
+	return global_position + Vector2(0.0, (_anim.head_y if _anim else -40.0) / 2.0)

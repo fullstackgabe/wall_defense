@@ -23,6 +23,11 @@ var _frame: int = 0
 var _frame_t: float = 0.0
 var _hit_fired: bool = false  ## garante uma emissão por ciclo
 
+## O nó dono fica no PÉ do personagem (é o pé que segue o meio da estrada e que
+## o y-sort do mapa usa); o sprite é desenhado para cima a partir dele.
+var feet_offset: float = 0.0   ## do centro do sprite até o pé, em px do mundo
+var head_y: float      = -60.0 ## topo da arte relativo ao pé (negativo)
+
 # ---------------------------------------------------------------------------
 
 func setup(char_folder: String, size_px: float = 80.0) -> void:
@@ -104,6 +109,11 @@ func _build_sprite(char_folder: String, size_px: float) -> void:
 		var tw := float(_sprite.texture.get_width())
 		var th := float(_sprite.texture.get_height())
 		_sprite.scale = Vector2.ONE * (size_px / maxf(tw, th))
+		var used := _idle_texture.get_image().get_used_rect()
+		var k := _sprite.scale.x
+		feet_offset = (float(used.end.y) - th / 2.0) * k
+		head_y      = (float(used.position.y) - th / 2.0) * k - feet_offset
+		_sprite.position = Vector2(0.0, -feet_offset)
 	get_parent().add_child(_sprite)
 
 func _update_frame() -> void:

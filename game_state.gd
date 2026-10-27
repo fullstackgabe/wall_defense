@@ -1,7 +1,7 @@
 extends Node
 
-const STARTING_GOLD  := 120
-const STARTING_LIVES := 10
+const STARTING_GOLD  := 50
+const STARTING_LIVES := 3
 
 var gold:  int = STARTING_GOLD
 var lives: int = STARTING_LIVES

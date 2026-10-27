@@ -10,7 +10,7 @@ var _sprite: Sprite2D
 
 func setup(target: Node2D, dmg: float, spd: float) -> void:
 	_target     = target
-	_target_pos = target.global_position
+	_target_pos = _aim_point(target)
 	damage      = dmg
 	speed       = spd
 
@@ -29,7 +29,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	var dest: Vector2
 	if is_instance_valid(_target):
-		dest = _target.global_position
+		dest = _aim_point(_target)
 		_target_pos = dest
 	else:
 		dest = _target_pos
@@ -41,6 +41,9 @@ func _process(delta: float) -> void:
 
 	global_position += to.normalized() * speed * delta
 	rotation = to.angle()
+
+func _aim_point(t: Node2D) -> Vector2:
+	return t.body_center() if t.has_method("body_center") else t.global_position
 
 func _on_hit() -> void:
 	if is_instance_valid(_target) and _target.has_method("take_damage"):

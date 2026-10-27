@@ -2,16 +2,17 @@ class_name JonSnow
 extends CharacterBody2D
 
 const _SpriteAnimator = preload("res://sprite_animator.gd")
+const _HpBar          = preload("res://hp_bar.gd")
 
 ## Melee hero. Auto-chases nearby enemies and attacks them.
 ## Click to select, click map to reposition.
 
-## Limites da muralha (devem bater com map.gd — GATE_COL=14, GATE_WIDTH=4)
-const WALL_Y_TOP   := 8  * 40        ## 320
-const WALL_Y_BOT   := 11 * 40        ## 440
-const HOLE_X_LEFT  := 14 * 40        ## 560
-const HOLE_X_RIGHT := 18 * 40        ## 720
-const HOLE_X_MID   := (HOLE_X_LEFT + HOLE_X_RIGHT) / 2.0  ## 640
+## Limites da muralha (devem bater com map.gd — WALL_ROW 10–13, GATE_COL=18, GATE_WIDTH=4)
+const WALL_Y_TOP   := 10 * 40        ## 400
+const WALL_Y_BOT   := 13 * 40        ## 520
+const HOLE_X_LEFT  := 18 * 40        ## 720
+const HOLE_X_RIGHT := 22 * 40        ## 880
+const HOLE_X_MID   := (HOLE_X_LEFT + HOLE_X_RIGHT) / 2.0  ## 800
 
 const MOVE_SPEED    := 80.0
 const MELEE_RANGE   := 52.0      ## igual ao EnemyBase.MELEE_RANGE: alcança quem o ataca
@@ -45,8 +46,12 @@ func _ready() -> void:
 	add_to_group("heroes")
 	_anim = _SpriteAnimator.new()
 	add_child(_anim)
-	_anim.setup("jon_snow", 80.0)
+	_anim.setup("jon_snow", 100.0)   ## 80 ficava pequeno demais (pedido do usuário, 26/10/2026)
 	_anim.attack_hit.connect(_on_attack_hit)
+	var bar := _HpBar.new(func(): return hp / MAX_HP, _anim.head_y - 8.0)
+	bar.color_full = Color(0.1, 0.7, 0.9)
+	bar.low_below  = 0.3
+	add_child(bar)
 
 # ---------------------------------------------------------------------------
 
@@ -91,6 +96,8 @@ func _physics_process(delta: float) -> void:
 			move_and_slide()
 		else:
 			var chase_path := _compute_path(_locked_target.global_position)
+			while chase_path.size() > 1 and global_position.distance_to(chase_path[0]) < WAYPOINT_DIST:
+				chase_path.pop_front()   # já está no waypoint (ex.: na boca do portão)
 			if not chase_path.is_empty():
 				_move_toward(chase_path[0], delta)
 			_anim.play()
@@ -127,6 +134,24 @@ func _set_destination(dest: Vector2) -> void:
 	_path = _compute_path(dest)
 
 func _compute_path(dest: Vector2) -> Array:
+	## Floresta: só anda pelas estradas (o mapa, pai do Jon, conhece o traçado).
+	var from_forest := global_position.y < WALL_Y_TOP
+	var dest_forest := dest.y < WALL_Y_TOP
+	var map := get_parent()
+	if (from_forest or dest_forest) and map.has_method("forest_route"):
+		var gate_top := Vector2(HOLE_X_MID, WALL_Y_TOP - 4)
+		var gate_bot := Vector2(HOLE_X_MID, WALL_Y_BOT + 4)
+		if from_forest and dest_forest:
+			return map.forest_route(global_position, dest)
+		if from_forest:
+			var out: Array = map.forest_route(global_position, gate_top)
+			if dest.y > WALL_Y_BOT:
+				out.append(gate_bot)
+			out.append(dest)
+			return out
+		var into: Array = [gate_bot, gate_top] if global_position.y > WALL_Y_BOT else [gate_top]
+		return into + map.forest_route(gate_top, dest)
+
 	## Caminho reto livre (ex.: os dois dentro do buraco) — vai direto.
 	## Sem isso, perto da borda da muralha ele alternava entre a rota pelo
 	## buraco e a rota direta a cada frame e ficava tremendo no lugar.
@@ -136,24 +161,9 @@ func _compute_path(dest: Vector2) -> Array:
 	var from_y := global_position.y
 	var dest_y := dest.y
 
-	var from_castle := from_y > WALL_Y_BOT
-	var from_forest := from_y < WALL_Y_TOP
-
-	## Castelo → floresta/muralha: passa pelo buraco subindo
-	if from_castle and not (dest_y > WALL_Y_BOT):
-		return [
-			Vector2(HOLE_X_MID, WALL_Y_BOT + 4),
-			Vector2(HOLE_X_MID, WALL_Y_TOP - 4),
-			dest
-		]
-
-	## Floresta → castelo/muralha: passa pelo buraco descendo
-	if from_forest and not (dest_y < WALL_Y_TOP):
-		return [
-			Vector2(HOLE_X_MID, WALL_Y_TOP - 4),
-			Vector2(HOLE_X_MID, WALL_Y_BOT + 4),
-			dest
-		]
+	## Castelo → buraco da muralha: entra pelo meio do buraco
+	if from_y > WALL_Y_BOT and dest_y <= WALL_Y_BOT:
+		return [Vector2(HOLE_X_MID, WALL_Y_BOT + 4), dest]
 
 	return [dest]
 
@@ -226,7 +236,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	var click := get_global_mouse_position()
 
 	if not _selected:
-		if global_position.distance_to(click) <= 24.0:
+		## O nó fica no pé: aceita clique do pé até a cabeça.
+		var rel := click - global_position
+		if absf(rel.x) <= 24.0 and rel.y <= 12.0 and rel.y >= _anim.head_y - 4.0:
 			_selected = true
 			queue_redraw()
 			get_viewport().set_input_as_handled()
@@ -237,15 +249,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 # ---------------------------------------------------------------------------
-# Draw: selection ring + HP bar
+# Draw: selection ring (a barra de vida é o HpBar)
 
 func _draw() -> void:
 	if _selected:
 		draw_circle(Vector2.ZERO, 24.0, SEL_COLOR)
-	var bar_w := 36.0
-	var bar_h := 4.0
-	var off   := Vector2(-bar_w / 2.0, -34.0)
-	draw_rect(Rect2(off, Vector2(bar_w, bar_h)), Color(0.2, 0.2, 0.2))
-	var ratio := hp / MAX_HP
-	draw_rect(Rect2(off, Vector2(bar_w * ratio, bar_h)),
-			  Color(0.1, 0.7, 0.9) if ratio > 0.3 else Color(0.9, 0.2, 0.1))

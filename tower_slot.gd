@@ -6,6 +6,9 @@ const PAD_COLOR  := Color(1.0, 0.85, 0.30, 0.28)
 const PAD_HOV    := Color(1.0, 0.85, 0.30, 0.55)
 const PAD_BORDER := Color(1.0, 0.85, 0.30, 0.80)
 const PAD_SEL    := Color(0.3, 0.8, 1.0, 0.70)   ## Jon Snow selected highlight
+const PAD_STONE    := Color(0.56, 0.57, 0.6)
+const PAD_STONE_DK := Color(0.36, 0.37, 0.41)
+const PAD_HOV_RING := Color(1.0, 0.85, 0.30)
 
 var cell: Vector2i = Vector2i(-1, -1)
 var tower: Node2D  = null   ## null = free
@@ -51,15 +54,14 @@ func remove_tower() -> Node2D:
 	return t
 
 func _draw() -> void:
-	var half := (TILE_SIZE - 6) / 2.0
-	var r    := Rect2(-half, -half, TILE_SIZE - 6, TILE_SIZE - 6)
-	if tower == null:
-		var fill := PAD_HOV if _hovered else PAD_COLOR
-		draw_rect(r, fill)
-		draw_rect(r, PAD_BORDER, false, 1.5)
-	else:
-		# Subtle border so pad is still visible
-		draw_rect(r, Color(PAD_BORDER, 0.25), false, 1.0)
+	## Plataforma redonda de pedra (estilo Kingdom Rush); dourada no hover.
+	if tower != null:
+		draw_circle(Vector2(0, 6), 17.0, Color(0, 0, 0, 0.25))   # sombra da torre
+		return
+	draw_circle(Vector2(0, 3), 19.0, Color(0, 0, 0, 0.3))      # sombra
+	draw_circle(Vector2.ZERO, 18.0, PAD_STONE_DK)
+	draw_circle(Vector2.ZERO, 14.5, PAD_STONE)
+	draw_arc(Vector2.ZERO, 18.0, 0.0, TAU, 32, PAD_HOV_RING if _hovered else PAD_STONE_DK.darkened(0.4), 2.0)
 
 func _on_mouse_entered() -> void:
 	_hovered = true

@@ -5,8 +5,9 @@ const _Projectile = preload("res://projectile.gd")
 
 const tower_type: String = "archer"
 const DAMAGE:    float = 9.0
-const RANGE_PX:  float = 220.0
+const RANGE_PX:  float = 300.0
 const FIRE_RATE: float = 1.1
+const TOWER_HEIGHT_PX := 140.0   ## altura da torre desenhada, no mundo
 
 var _fire_timer:       float  = 0.0
 var _enemies_in_range: Array  = []
@@ -27,9 +28,15 @@ func _build_sprite() -> void:
 	_sprite = Sprite2D.new()
 	_sprite.texture = load(path)
 	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	var tw := float(_sprite.texture.get_width())
-	var th := float(_sprite.texture.get_height())
-	_sprite.scale = Vector2.ONE * (200.0 / maxf(tw, th))
+	## Escala pela parte desenhada do PNG (a arte pode ocupar só o miolo do canvas):
+	## a torre visível fica com TOWER_HEIGHT_PX de altura e a base apoiada no slot.
+	var used := _sprite.texture.get_image().get_used_rect()
+	var k := TOWER_HEIGHT_PX / float(used.size.y)
+	_sprite.scale = Vector2.ONE * k
+	var tex_size := Vector2(_sprite.texture.get_size())
+	var used_bottom := float(used.end.y) - tex_size.y / 2.0          # base da arte, rel. ao centro
+	var used_center_x := float(used.position.x + used.size.x / 2.0) - tex_size.x / 2.0
+	_sprite.position = Vector2(-used_center_x * k, 12.0 - used_bottom * k)
 	add_child(_sprite)
 
 func _build_range_area() -> void:

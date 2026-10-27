@@ -12,9 +12,12 @@ const _Hud         = preload("res://hud.gd")
 const Styles       = preload("res://styles.gd")
 
 const TOWER_SCRIPTS := { "archer": _ArcherTower }
-const JON_SNOW_SPAWN_CELL := Vector2i(16, 12)
+const JON_SNOW_SPAWN_CELL := Vector2i(20, 14)
+## Câmera afastada: o fundo ilustrado (400×224 ×4 = 1600×896) preenche exatamente a
+## tela de 1280×720 (zoom 720/896 ≈ 0.80); o grid jogável ocupa os primeiros 880 px.
+const CAMERA_ZOOM := 720.0 / 896.0
 const RESPAWN_DELAY := 15.0
-const SPAWN_COOLDOWN := 3.0   ## espera entre envios de inimigos
+const SPAWN_INTERVAL := 3.0   ## uma horda a cada 3 s, automática (não há mais botão)
 
 @onready var _map:        Node2D  = $Map
 @onready var _tower_menu: Control = $TowerMenu
@@ -26,12 +29,13 @@ var _respawn_timer: float = 0.0
 var _respawn_btn:   Button = null
 var _respawn_label: Label  = null
 var _respawn_canvas: CanvasLayer = null
-var _spawn_btn:      Button = null
-var _spawn_cooldown: float  = 0.0
+var _spawn_cooldown: float  = SPAWN_INTERVAL   ## 3 s antes da 1ª horda para construir
 
 # ---------------------------------------------------------------------------
 
 func _ready() -> void:
+	$Camera2D.zoom = Vector2(CAMERA_ZOOM, CAMERA_ZOOM)
+	_tower_menu.scale = Vector2.ONE / CAMERA_ZOOM   # menu no mundo, mas do mesmo tamanho na tela
 	_wave_manager = _WaveManager.new()
 	add_child(_wave_manager)
 	_wave_manager.setup(_map, _map)
@@ -42,7 +46,6 @@ func _ready() -> void:
 	GameState.state_changed.connect(_on_state_changed)
 	add_child(_Hud.new())
 	_build_respawn_ui()
-	_build_spawn_btn()
 	_spawn_jon_snow()
 
 # ---------------------------------------------------------------------------
@@ -82,40 +85,18 @@ func _build_respawn_ui() -> void:
 	_respawn_label.custom_minimum_size = Vector2(200, 24)
 	_respawn_canvas.add_child(_respawn_label)
 
-func _build_spawn_btn() -> void:
-	var canvas := CanvasLayer.new()
-	add_child(canvas)
-
-	_spawn_btn = Button.new()
-	_spawn_btn.text = "Enviar Inimigos"
-	_spawn_btn.custom_minimum_size = Vector2(200, 46)
-	_spawn_btn.add_theme_font_size_override("font_size", 14)
-	Styles.gold_button(_spawn_btn, Styles.GOLD, Styles.GOLD.lightened(0.2))
-	_spawn_btn.add_theme_color_override("font_color", Styles.NIGHT)
-	_spawn_btn.pressed.connect(_on_spawn_pressed)
-	canvas.add_child(_spawn_btn)
-	await get_tree().process_frame
-	_spawn_btn.position = Vector2(1280 / 2.0 - _spawn_btn.size.x / 2.0, 720 - _spawn_btn.size.y - 12)
-
-func _on_spawn_pressed() -> void:
-	if _spawn_cooldown > 0.0:
-		return
-	_wave_manager.spawn_pair()
-	_spawn_cooldown = SPAWN_COOLDOWN
-	_spawn_btn.disabled = true
-
-func _tick_spawn_cooldown(delta: float) -> void:
-	if _spawn_cooldown <= 0.0:
+## Envia uma horda (spawn_pair) a cada SPAWN_INTERVAL s, como se o jogador clicasse sem
+## parar no antigo botão “Enviar Inimigos”. Para no game over.
+func _tick_spawn(delta: float) -> void:
+	if GameState.state == GameState.State.GAME_OVER:
 		return
 	_spawn_cooldown -= delta
-	if _spawn_cooldown > 0.0:
-		_spawn_btn.text = "Enviar Inimigos (%ds)" % ceili(_spawn_cooldown)
-	else:
-		_spawn_btn.text = "Enviar Inimigos"
-		_spawn_btn.disabled = false
+	if _spawn_cooldown <= 0.0:
+		_spawn_cooldown += SPAWN_INTERVAL
+		_wave_manager.spawn_pair()
 
 func _process(delta: float) -> void:
-	_tick_spawn_cooldown(delta)
+	_tick_spawn(delta)
 	if not _respawning:
 		if not is_instance_valid(_jon_snow) and not _respawn_canvas.visible:
 			_respawning = true
